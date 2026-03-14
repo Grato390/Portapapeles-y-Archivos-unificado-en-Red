@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compartir en red local</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="header">
+    <h1>Compartir en red local</h1>
+    <p class="subtitle">Portapapeles, imágenes y archivos entre dispositivos de la LAN</p>
+    <p class="url-info">
+      <span class="label">Acceso en la red:</span>
+      <code class="url">{{ request.url_root }}</code>
+      <button type="button" class="btn btn-small" data-copy-url title="Copiar URL">Copiar URL</button>
+      <button type="button" class="btn btn-small btn-danger" id="clear-all" title="Borrar todo el contenido compartido">Liberar todo</button>
+    </p>
+  </header>
+
+  <main class="main">
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="clipboard" role="tab" aria-selected="true">Portapapeles</button>
+      <button type="button" class="tab" data-tab="images" role="tab" aria-selected="false">Imágenes</button>
+      <button type="button" class="tab" data-tab="files" role="tab" aria-selected="false">Archivos</button>
+    </nav>
+
+    <!-- Sección Portapapeles -->
+    <section id="section-clipboard" class="panel active" role="tabpanel">
+      <div class="panel-grid">
+        <div class="card">
+          <h2>Enviar texto al portapapeles compartido</h2>
+          <textarea id="clipboard-input" class="textarea" rows="4" placeholder="Pega aquí el texto que quieres compartir..."></textarea>
+          <button type="button" class="btn btn-primary" id="clipboard-send">Enviar a todos los dispositivos</button>
+        </div>
+        <div class="card">
+          <h2>Historial compartido</h2>
+          <button type="button" class="btn btn-small btn-secondary" id="clipboard-refresh" title="Ver lo que enviaron otros">Actualizar</button>
+          <div id="clipboard-history" class="clipboard-history" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección Imágenes -->
+    <section id="section-images" class="panel" role="tabpanel" hidden>
+      <div class="panel-grid">
+        <div class="card">
+          <h2>Subir imágenes</h2>
+          <p>Elige imágenes. Luego pulsa <strong>Enviar a todos los dispositivos</strong> para subirlas.</p>
+          <div id="images-paste-hint" class="paste-hint" tabindex="0" contenteditable="true" role="textbox" aria-label="Área para pegar imagen con Ctrl+V">
+            <span class="paste-hint-text">Ctrl+V (o Cmd+V en Mac) aquí para pegar tu imagen</span>
+          </div>
+          <div id="images-drop-zone" class="drop-zone">
+            <input type="file" id="images-input" accept="image/*" multiple hidden>
+            <span class="drop-zone-text">Suelta imágenes o haz clic</span>
+          </div>
+          <div id="images-pending-wrap" class="pending-wrap" hidden>
+            <h3 class="pending-title">Listas para enviar</h3>
+            <div id="images-pending" class="pending-previews"></div>
+            <button type="button" class="btn btn-primary" id="images-send-btn">Enviar a todos los dispositivos</button>
+          </div>
+          <div id="images-progress" class="progress-wrap" hidden>
+            <div class="progress-bar"><span class="progress-fill"></span></div>
+            <span class="progress-text">Subiendo...</span>
+          </div>
+        </div>
+        <div class="card card-full">
+          <h2>Historial de imágenes</h2>
+          <div id="images-gallery" class="gallery" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección Archivos -->
+    <section id="section-files" class="panel" role="tabpanel" hidden>
+      <div class="panel-grid">
+        <div class="card">
+          <h2>Subir archivos o carpetas</h2>
+          <p>Elige archivos o carpeta. Luego pulsa <strong>Enviar a todos los dispositivos</strong> para subirlos.</p>
+          <div id="files-drop-zone" class="drop-zone">
+            <input type="file" id="files-input" multiple hidden>
+            <input type="file" id="files-folder" webkitdirectory directory multiple hidden>
+            <span class="drop-zone-text">Suelta archivos o haz clic</span>
+          </div>
+          <div class="button-row">
+            <button type="button" class="btn btn-secondary" id="files-select">Seleccionar archivos</button>
+            <button type="button" class="btn btn-secondary" id="files-select-folder">Seleccionar carpeta</button>
+          </div>
+          <div id="files-pending-wrap" class="pending-wrap" hidden>
+            <h3 class="pending-title">Listos para enviar</h3>
+            <div id="files-pending-list" class="files-pending-list"></div>
+            <button type="button" class="btn btn-primary" id="files-send-btn">Enviar a todos los dispositivos</button>
+          </div>
+          <div id="files-progress" class="progress-wrap" hidden>
+            <div class="progress-bar"><span class="progress-fill"></span></div>
+            <span class="progress-text">Subiendo...</span>
+          </div>
+        </div>
+        <div class="card card-full">
+          <h2>Archivos disponibles</h2>
+          <div id="files-list" class="files-list" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Todos los dispositivos en la misma red ven el mismo contenido. Los datos se comparten en tiempo real.</p>
+  </footer>
+
+  <!-- Visor de imagen (zoom, cerrar con X, imágenes pequeñas se ven completas) -->
+  <div id="image-lightbox" class="lightbox" hidden aria-modal="true" role="dialog">
+    <button type="button" class="lightbox-close" title="Cerrar">&times;</button>
+    <div class="lightbox-zoom-controls">
+      <button type="button" class="lightbox-zoom-btn" id="lightbox-zoom-out" title="Alejar">−</button>
+      <span class="lightbox-zoom-value" id="lightbox-zoom-value">100%</span>
+      <button type="button" class="lightbox-zoom-btn" id="lightbox-zoom-in" title="Acercar">+</button>
+    </div>
+    <div class="lightbox-content">
+      <img id="lightbox-img" src="" alt="">
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
