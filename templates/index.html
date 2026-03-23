@@ -9,11 +9,11 @@
 <body>
   <header class="header">
     <h1>Compartir en red local</h1>
-    <p class="subtitle">Portapapeles, imágenes y archivos entre dispositivos de la LAN</p>
     <p class="url-info">
       <span class="label">Acceso en la red:</span>
       <code class="url">{{ request.url_root }}</code>
       <button type="button" class="btn btn-small" data-copy-url title="Copiar URL">Copiar URL</button>
+      <button type="button" class="btn btn-small btn-primary" id="refresh-all" title="Actualizar todo el contenido">Actualizar</button>
       <button type="button" class="btn btn-small btn-danger" id="clear-all" title="Borrar todo el contenido compartido">Liberar todo</button>
     </p>
   </header>
@@ -46,10 +46,6 @@
       <div class="panel-grid">
         <div class="card">
           <h2>Subir imágenes</h2>
-          <p>Elige imágenes. Luego pulsa <strong>Enviar a todos los dispositivos</strong> para subirlas.</p>
-          <div id="images-paste-hint" class="paste-hint" tabindex="0" contenteditable="true" role="textbox" aria-label="Área para pegar imagen con Ctrl+V">
-            <span class="paste-hint-text">Ctrl+V (o Cmd+V en Mac) aquí para pegar tu imagen</span>
-          </div>
           <div id="images-drop-zone" class="drop-zone">
             <input type="file" id="images-input" accept="image/*" multiple hidden>
             <span class="drop-zone-text">Suelta imágenes o haz clic</span>
@@ -98,6 +94,7 @@
         </div>
         <div class="card card-full">
           <h2>Archivos disponibles</h2>
+          <div id="files-error" class="error-text" aria-live="polite"></div>
           <div id="files-list" class="files-list" aria-live="polite"></div>
         </div>
       </div>
@@ -118,6 +115,14 @@
     </div>
     <div class="lightbox-content">
       <img id="lightbox-img" src="" alt="">
+    </div>
+  </div>
+
+  <!-- Visor de PDF (iframe) -->
+  <div id="pdf-lightbox" class="lightbox" hidden aria-modal="true" role="dialog">
+    <button type="button" class="lightbox-close" id="pdf-lightbox-close" title="Cerrar">&times;</button>
+    <div class="lightbox-content pdf-content">
+      <iframe id="pdf-iframe" src="" title="Visor de PDF"></iframe>
     </div>
   </div>
 

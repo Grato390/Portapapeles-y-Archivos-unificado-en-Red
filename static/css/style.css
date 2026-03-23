@@ -293,51 +293,6 @@ body {
   margin-top: 0.5rem;
 }
 
-/* Hint para pegar imagen con Ctrl+V */
-.paste-hint {
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 0.75rem;
-  background: rgba(91, 124, 255, 0.1);
-  border: 1px dashed var(--accent);
-  border-radius: 6px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  outline: none;
-  cursor: text;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.paste-hint:focus {
-  background: rgba(91, 124, 255, 0.15);
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.paste-hint-text {
-  pointer-events: none;
-  user-select: none;
-}
-
-.paste-hint:empty::before {
-  content: "Ctrl+V (o Cmd+V en Mac) aquí para pegar tu imagen";
-  color: var(--text-muted);
-}
-
-.paste-area:focus {
-  border-color: var(--accent);
-  background: rgba(91, 124, 255, 0.06);
-}
-
-.paste-area-text {
-  pointer-events: none;
-  user-select: none;
-}
-
-.paste-area:empty::before,
-.paste-area .paste-area-text:only-child {
-  color: var(--text-muted);
-}
-
 /* Zona de drop */
 .drop-zone {
   border: 2px dashed var(--border);
@@ -491,6 +446,12 @@ body {
   border: 1px solid var(--border);
   color: var(--text);
   cursor: pointer;
+}
+
+.error-text {
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: #f87171;
 }
 
 /* Galería de imágenes (estilo historial con hora y borrar) */
@@ -648,6 +609,19 @@ body {
   object-fit: contain;
   display: block;
   transition: transform 0.15s ease-out;
+}
+
+/* Visor PDF en el mismo estilo que el lightbox de imágenes */
+.pdf-content {
+  width: 100%;
+  height: 100%;
+}
+
+#pdf-iframe {
+  width: 100%;
+  height: calc(100vh - 6rem);
+  border: none;
+  background: #fff;
 }
 
 .lightbox-close {

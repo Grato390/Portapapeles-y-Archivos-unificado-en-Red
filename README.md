@@ -2,6 +2,10 @@
 
 Sistema web para compartir **portapapeles**, **imágenes** y **archivos** entre todos los dispositivos de una misma red local (LAN). Ideal como AirDrop o LAN Share casero.
 
+![Interfaz web - Compartir en red local](docs/screenshot-interfaz.png)
+
+> **GitHub:** incluye la imagen en el commit (`git add docs/screenshot-interfaz.png README.md`) y haz `git push`. Si cambias el nombre del archivo, actualiza la ruta en la línea de arriba.
+
 ---
 
 ## Características
@@ -131,6 +135,8 @@ Todos verán la misma interfaz y el mismo contenido compartido.
 ├── requirements.txt       # Flask, Werkzeug
 ├── .gitignore
 ├── README.md
+├── docs/                  # Capturas para el README (opcional)
+│   └── screenshot-interfaz.png
 ├── templates/
 │   └── index.html         # Interfaz (portapapeles, imágenes, archivos)
 ├── static/

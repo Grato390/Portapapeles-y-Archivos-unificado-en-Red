@@ -7,10 +7,12 @@ import os
 import socket
 import uuid
 from pathlib import Path
+
 from flask import Flask, request, jsonify, send_from_directory, render_template, url_for
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200 MB máximo por archivo
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024 * 1024  # 1 GB máximo por petición de subida
 
 # Directorios de almacenamiento (se crean al iniciar)
 BASE_DIR = Path(__file__).resolve().parent
@@ -132,11 +134,24 @@ def delete_clipboard_entry(index):
 
 # ---------- API Imágenes ----------
 
+def _list_images_fresh():
+    """Devuelve lista de imágenes leyendo del disco (sin tocar globales). Evita duplicados al actualizar."""
+    out = []
+    seen = set()
+    if not IMAGES_DIR.exists():
+        return out
+    for f in sorted(IMAGES_DIR.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+        if f.is_file() and f.name not in seen:
+            seen.add(f.name)
+            st = f.stat()
+            out.append({"id": f.stem, "name": f.name, "size": st.st_size, "updated": st.st_mtime})
+    return out
+
+
 @app.route("/api/images", methods=["GET"])
 def list_images():
     """Lista las imágenes subidas."""
-    scan_uploads()
-    return jsonify({"images": images_meta})
+    return jsonify({"images": _list_images_fresh()})
 
 
 @app.route("/api/images", methods=["POST"])
@@ -208,25 +223,41 @@ def delete_image(file_id):
 
 # ---------- API Archivos ----------
 
+def _list_files_fresh():
+    """Devuelve lista de archivos leyendo del disco (sin tocar globales). Evita duplicados al actualizar."""
+    out = []
+    seen = set()
+    if not FILES_DIR.exists():
+        return out
+    for f in sorted(FILES_DIR.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+        if f.is_file() and f.name not in seen:
+            seen.add(f.name)
+            st = f.stat()
+            out.append({"id": f.stem, "name": f.name, "size": st.st_size})
+    return out
+
+
 @app.route("/api/files", methods=["GET"])
 def list_files():
     """Lista los archivos subidos."""
-    scan_uploads()
-    return jsonify({"files": files_meta})
+    return jsonify({"files": _list_files_fresh()})
 
 
 @app.route("/api/files", methods=["POST"])
 def upload_file():
-    """Sube uno o más archivos. Si existe el mismo nombre, se sobrescribe (evita duplicados)."""
+    """Sube todos los archivos (carpeta o varios) usando EXACTAMENTE el nombre del archivo."""
     ensure_dirs()
     uploaded = []
-    for key in request.files:
-        f = request.files[key]
-        if f and f.filename:
-            name = f.filename
-            path = FILES_DIR / name
-            f.save(path)  # sobrescribe si existe → un solo archivo por nombre
-            uploaded.append({"name": name, "id": path.stem})
+    # Recoger TODOS los archivos enviados bajo la key "file"
+    for f in request.files.getlist("file"):
+        if not f or not f.filename:
+            continue
+        # Usar solo el nombre REAL del archivo (sin carpetas) y no tocarlo más que para securizarlo
+        base_name = Path(f.filename).name or "archivo"
+        safe_name = secure_filename(base_name) or "archivo"
+        path = FILES_DIR / safe_name
+        f.save(path)
+        uploaded.append({"name": safe_name, "id": path.stem})
     scan_uploads()
     return jsonify({"ok": True, "uploaded": uploaded})
 
@@ -246,6 +277,17 @@ def download_file(file_id):
     if f:
         return send_from_directory(FILES_DIR, f.name, as_attachment=True, download_name=f.name)
     return "", 404
+
+
+@app.route("/api/files/<path:file_id>/view", methods=["GET"])
+def view_pdf_file(file_id):
+    """Muestra un PDF en el navegador (sin forzar descarga)."""
+    f = _find_file_by_id(file_id)
+    if not f:
+        return "", 404
+    if f.suffix.lower() != ".pdf":
+        return "", 404
+    return send_from_directory(FILES_DIR, f.name, as_attachment=False)
 
 
 @app.route("/api/files/<path:file_id>", methods=["DELETE"])

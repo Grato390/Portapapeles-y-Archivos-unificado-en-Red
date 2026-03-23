@@ -12,6 +12,7 @@ const API = {
   imageDelete: (id) => `/api/images/${id}`,
   files: "/api/files",
   fileDownload: (id) => `/api/files/${encodeURIComponent(id)}/download`,
+  fileView: (id) => `/api/files/${encodeURIComponent(id)}/view`,
   fileDelete: (id) => `/api/files/${encodeURIComponent(id)}`,
   clear: "/api/clear",
 };
@@ -84,7 +85,6 @@ document.querySelector("[data-copy-url]")?.addEventListener("click", () => {
 
 // --- Liberar todo ---
 document.getElementById("clear-all")?.addEventListener("click", () => {
-  if (!confirm("¿Borrar todo el contenido compartido (historial, imágenes y archivos)?")) return;
   fetch(API.clear, { method: "POST" })
     .then((r) => r.json())
     .then(() => {
@@ -93,6 +93,20 @@ document.getElementById("clear-all")?.addEventListener("click", () => {
       loadFiles();
     })
     .catch(() => {});
+});
+
+document.getElementById("refresh-all")?.addEventListener("click", function () {
+  var btn = this;
+  var textoOriginal = btn.textContent;
+  btn.textContent = "Actualizando…";
+  btn.disabled = true;
+  pollClipboard();
+  if (typeof loadImages === "function") loadImages();
+  if (typeof loadFiles === "function") loadFiles();
+  setTimeout(function () {
+    btn.textContent = textoOriginal;
+    btn.disabled = false;
+  }, 600);
 });
 
 // --- Portapapeles (historial) ---
@@ -153,7 +167,7 @@ function updateClipboardHistoryUI(history) {
 }
 
 function pollClipboard() {
-  fetch(API.clipboard)
+  fetch(API.clipboard + "?_=" + Date.now(), { cache: "no-store" })
     .then((r) => r.json())
     .then((data) => updateClipboardHistoryUI(data.history || []))
     .catch(() => {});
@@ -247,25 +261,6 @@ function renderPendingImages() {
   });
 }
 
-function copyImageToClipboard(imageId, btn) {
-  const url = API.imageUrl(imageId);
-  fetch(url)
-    .then((r) => r.blob())
-    .then((blob) => {
-      if (!navigator.clipboard?.write) return Promise.reject(new Error("No soportado"));
-      return navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-    })
-    .then(() => {
-      const prev = btn.textContent;
-      btn.textContent = "¡Copiado!";
-      setTimeout(() => { btn.textContent = prev; }, 1500);
-    })
-    .catch(() => {
-      btn.textContent = "No disponible";
-      setTimeout(() => { btn.textContent = "Copiar"; }, 2000);
-    });
-}
-
 function formatImageTime(updated) {
   if (!updated) return "";
   const d = new Date(updated * 1000);
@@ -274,10 +269,16 @@ function formatImageTime(updated) {
 
 function renderImages(list) {
   if (!imagesGallery) return;
-  if (!list || list.length === 0) {
+  if (!list || !list.length) {
     imagesGallery.innerHTML = "<p class=\"images-empty\">No hay imágenes compartidas.</p>";
     return;
   }
+  var seen = {};
+  list = list.filter(function (img) {
+    if (seen[img.id]) return false;
+    seen[img.id] = true;
+    return true;
+  });
   imagesGallery.innerHTML = list.map((img) => {
     const timeStr = formatImageTime(img.updated);
     return `
@@ -289,7 +290,6 @@ function renderImages(list) {
         <span class="gallery-item-time">${escapeHtml(timeStr)}</span>
         <div class="gallery-item-actions">
           <a href="${API.imageDownload(img.id)}" class="btn btn-small btn-secondary" download>Descargar</a>
-          <button type="button" class="btn btn-small btn-secondary btn-copy-image" data-id="${escapeHtml(img.id)}">Copiar</button>
           <button type="button" class="btn btn-small btn-delete-image" data-id="${escapeHtml(img.id)}">Borrar</button>
         </div>
       </div>
@@ -305,21 +305,12 @@ function renderImages(list) {
     });
   });
 
-  imagesGallery.querySelectorAll(".btn-copy-image").forEach((btn) => {
-    btn.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      copyImageToClipboard(this.getAttribute("data-id"), this);
-    });
-  });
-
   imagesGallery.querySelectorAll(".btn-delete-image").forEach((btn) => {
     btn.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
       const id = this.getAttribute("data-id");
       if (!id) return;
-      if (!confirm("¿Borrar esta imagen?")) return;
       fetch(API.imageDelete(id), { method: "DELETE" })
         .then((r) => { if (r.ok) loadImages(); })
         .catch(() => {});
@@ -356,6 +347,34 @@ function closeImageLightbox() {
   document.body.style.overflow = "";
 }
 
+// --- Visor de PDF (iframe) ---
+const pdfLightbox = document.getElementById("pdf-lightbox");
+const pdfIframe = document.getElementById("pdf-iframe");
+const pdfLightboxClose = document.getElementById("pdf-lightbox-close");
+
+function openPdfLightbox(pdfUrl) {
+  if (!pdfLightbox || !pdfIframe || !pdfUrl) return;
+  pdfIframe.src = pdfUrl;
+  pdfLightbox.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closePdfLightbox() {
+  if (!pdfLightbox) return;
+  pdfLightbox.hidden = true;
+  if (pdfIframe) pdfIframe.src = "";
+  document.body.style.overflow = "";
+}
+
+pdfLightboxClose?.addEventListener("click", closePdfLightbox);
+pdfLightbox?.addEventListener("click", (e) => {
+  if (e.target === pdfLightbox) closePdfLightbox();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && pdfLightbox && !pdfLightbox.hidden) closePdfLightbox();
+});
+
 function setLightboxZoom(scale) {
   lightboxScale = Math.max(LIGHTBOX_SCALE_MIN, Math.min(LIGHTBOX_SCALE_MAX, scale));
   if (lightboxImg) lightboxImg.style.transform = `scale(${lightboxScale})`;
@@ -387,7 +406,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 function loadImages() {
-  fetch(API.images)
+  fetch(API.images + "?_=" + Date.now(), { cache: "no-store" })
     .then((r) => r.json())
     .then((data) => renderImages(data.images || []))
     .catch(() => {});
@@ -444,11 +463,6 @@ document.addEventListener("paste", (e) => {
         e.preventDefault();
         e.stopPropagation();
         addPendingImages([file]);
-        const hint = document.getElementById("images-paste-hint");
-        if (hint && (e.target === hint || hint.contains(e.target))) {
-          hint.innerHTML = "<span class=\"paste-hint-text\">Ctrl+V (o Cmd+V en Mac) aquí para pegar tu imagen</span>";
-          hint.blur();
-        }
       }
       return;
     }
@@ -467,6 +481,7 @@ const filesDropZone = document.getElementById("files-drop-zone");
 const filesInput = document.getElementById("files-input");
 const filesFolder = document.getElementById("files-folder");
 const filesList = document.getElementById("files-list");
+const filesError = document.getElementById("files-error");
 const filesProgress = document.getElementById("files-progress");
 const filesPendingWrap = document.getElementById("files-pending-wrap");
 const filesPendingList = document.getElementById("files-pending-list");
@@ -521,32 +536,63 @@ function formatSize(bytes) {
 
 function renderFiles(list) {
   if (!filesList) return;
-  filesList.innerHTML = list.map((f) => `
-    <div class="file-row" data-id="${escapeHtml(f.id)}">
-      <span class="name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
-      <span class="size">${formatSize(f.size)}</span>
-      <a href="${API.fileDownload(f.id)}" class="btn btn-small btn-secondary" download>Descargar</a>
-      <button type="button" class="btn btn-small btn-delete-file">Borrar</button>
-    </div>
-  `).join("");
+  if (list && list.length) {
+    var seen = {};
+    list = list.filter(function (f) {
+      if (seen[f.id]) return false;
+      seen[f.id] = true;
+      return true;
+    });
+  }
+
+  filesList.innerHTML = (list || []).map((f) => {
+    const isPdf = (f.name || "").toLowerCase().endsWith(".pdf");
+    const pdfBtn = isPdf
+      ? `<button type="button" class="btn btn-small btn-view-pdf" data-id="${escapeHtml(f.id)}">Ver PDF</button>`
+      : "";
+    return `
+      <div class="file-row" data-id="${escapeHtml(f.id)}">
+        <span class="name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+        <span class="size">${formatSize(f.size)}</span>
+        ${pdfBtn}
+        <a href="${API.fileDownload(f.id)}" class="btn btn-small btn-secondary" download>Descargar</a>
+        <button type="button" class="btn btn-small btn-delete-file">Borrar</button>
+      </div>
+    `;
+  }).join("");
+
   filesList.querySelectorAll(".btn-delete-file").forEach((btn) => {
     btn.addEventListener("click", function () {
       const row = this.closest(".file-row");
       const id = row?.getAttribute("data-id");
       if (!id) return;
-      if (!confirm("¿Borrar este archivo?")) return;
       fetch(API.fileDelete(id), { method: "DELETE" })
         .then((r) => { if (r.ok) loadFiles(); })
         .catch(() => {});
     });
   });
+
+  filesList.querySelectorAll(".btn-view-pdf").forEach((btn) => {
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = this.getAttribute("data-id");
+      if (!id) return;
+      // Cache-busting para evitar que el iframe se quede con una versión vieja
+      openPdfLightbox(API.fileView(id) + "?_=" + Date.now());
+    });
+  });
+
+  if (filesError) filesError.textContent = "";
 }
 
 function loadFiles() {
-  fetch(API.files)
+  fetch(API.files + "?_=" + Date.now(), { cache: "no-store" })
     .then((r) => r.json())
     .then((data) => renderFiles(data.files || []))
-    .catch(() => {});
+    .catch(() => {
+      if (filesError) filesError.textContent = "Error al cargar los archivos. Puede que la subida haya sido muy grande o la conexión se haya reiniciado.";
+    });
 }
 
 function uploadFilesNow(files) {
@@ -555,19 +601,22 @@ function uploadFilesNow(files) {
   for (let i = 0; i < files.length; i++) {
     form.append("file", files[i]);
   }
-  showFilesProgress(true, 0);
+  const total = files.length;
+  showFilesProgress(true, 0, "Subiendo " + total + " archivo(s)...");
   fetch(API.files, { method: "POST", body: form })
     .then((r) => r.json())
     .then(() => {
-      showFilesProgress(true, 100, "Listo");
+      showFilesProgress(true, 100, "Listo. " + total + " archivo(s) subidos.");
       pendingFiles = [];
       if (filesPendingWrap) filesPendingWrap.hidden = true;
       renderPendingFiles();
       loadFiles();
       setTimeout(() => showFilesProgress(false), 500);
     })
-    .catch(() => showFilesProgress(false))
-    .finally(() => showFilesProgress(false));
+    .catch(() => {
+      showFilesProgress(false);
+      if (filesError) filesError.textContent = "Error al subir los archivos o carpeta. Prueba con menos archivos o más pequeños.";
+    });
 }
 
 function triggerFileInput(useFolder) {
