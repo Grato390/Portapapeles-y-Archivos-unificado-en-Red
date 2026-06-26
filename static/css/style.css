@@ -624,6 +624,22 @@ body {
   background: #fff;
 }
 
+#pdf-open-external {
+  position: fixed;
+  top: 1rem;
+  right: 4.25rem;
+  z-index: 10000;
+}
+
+@media (max-width: 700px) {
+  #pdf-open-external {
+    top: 1rem;
+    right: 4.75rem;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.75rem;
+  }
+}
+
 .lightbox-close {
   position: fixed;
   top: 1rem;

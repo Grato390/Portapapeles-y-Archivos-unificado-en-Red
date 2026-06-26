@@ -94,6 +94,9 @@
         </div>
         <div class="card card-full">
           <h2>Archivos disponibles</h2>
+          <div class="button-row">
+            <button type="button" class="btn btn-small btn-secondary" id="resume-pdf-btn" hidden>Continuar ultimo PDF</button>
+          </div>
           <div id="files-error" class="error-text" aria-live="polite"></div>
           <div id="files-list" class="files-list" aria-live="polite"></div>
         </div>
@@ -121,6 +124,7 @@
   <!-- Visor de PDF (iframe) -->
   <div id="pdf-lightbox" class="lightbox" hidden aria-modal="true" role="dialog">
     <button type="button" class="lightbox-close" id="pdf-lightbox-close" title="Cerrar">&times;</button>
+    <button type="button" class="btn btn-small btn-secondary" id="pdf-open-external" title="Abrir el PDF fuera del visor">Abrir en navegador</button>
     <div class="lightbox-content pdf-content">
       <iframe id="pdf-iframe" src="" title="Visor de PDF"></iframe>
     </div>
